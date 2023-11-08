@@ -1,2 +1,3 @@
 # chess-engine
-a basic but powerful chess engine with GUI
+A basic but powerful chess engine in Python with GUI, built through chessprogramming.org.
+
