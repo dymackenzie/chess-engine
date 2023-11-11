@@ -5,7 +5,7 @@ from PIL import Image, ImageTk
 class GUI:
     # constants
     BOARD_SIZE = 8
-    SQUARE_SIZE = 80
+    SQUARE_SIZE = 64
     COLOR1 = "#CBAC79"
     COLOR2 = "#8B603D"
 
@@ -14,12 +14,12 @@ class GUI:
     focused = None
     images = {}
     piece_images = {
-        Piece.WHITE.value + Piece.PAWN.value : 'white_pawn',        Piece.WHITE.value + Piece.ROOK.value : 'white_rook', 
-        Piece.WHITE.value + Piece.KNIGHT.value : 'white_knight',    Piece.WHITE.value + Piece.BISHOP.value : 'white_bishop', 
-        Piece.WHITE.value + Piece.QUEEN.value : 'white_queen',      Piece.WHITE.value + Piece.KING.value : 'white_king',
-        Piece.BLACK.value + Piece.PAWN.value : 'black_pawn',        Piece.BLACK.value + Piece.ROOK.value : 'black_rook', 
-        Piece.BLACK.value + Piece.KNIGHT.value : 'black_knight',    Piece.BLACK.value + Piece.BISHOP.value : 'black_bishop', 
-        Piece.BLACK.value + Piece.QUEEN.value : 'black_queen',      Piece.BLACK.value + Piece.KING.value : 'black_king'
+        Piece.WHITE.value + Piece.PAWN.value : 'pwhite',        Piece.WHITE.value + Piece.ROOK.value : 'rwhite', 
+        Piece.WHITE.value + Piece.KNIGHT.value : 'nwhite',    Piece.WHITE.value + Piece.BISHOP.value : 'bwhite', 
+        Piece.WHITE.value + Piece.QUEEN.value : 'qwhite',      Piece.WHITE.value + Piece.KING.value : 'kwhite',
+        Piece.BLACK.value + Piece.PAWN.value : 'pblack',        Piece.BLACK.value + Piece.ROOK.value : 'rblack', 
+        Piece.BLACK.value + Piece.KNIGHT.value : 'nblack',    Piece.BLACK.value + Piece.BISHOP.value : 'bblack', 
+        Piece.BLACK.value + Piece.QUEEN.value : 'qblack',      Piece.BLACK.value + Piece.KING.value : 'kblack'
     }
 
     def __init__(self, parent, chessboard):
@@ -82,20 +82,11 @@ class GUI:
             # move the index along
             index += 1
 
-# piece = chessboard[row + col]
-#                 if piece in self.piece_images:
-#                     file_path = "chess_piece_icons/" + self.piece_images[piece]
-#                     img = tk.PhotoImage(file = file_path)
-#                     self.canvas.create_image(x0 + self.SQUARE_SIZE / 2,
-#                                         y0 + self.SQUARE_SIZE / 2,
-#                                         anchor = tk.CENTER,
-#                                         image = img)
-
 def main():
     root = tk.Tk()
     root.title("Chessboard")
     root.configure(background = "#454440") # background
-    load_fen_position()
+    #load_fen_position()
     gui = GUI(root, chessboard)
     gui.draw_board()
     gui.draw_pieces()
