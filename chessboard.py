@@ -14,13 +14,6 @@ from constants import *
 #    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 # ]
 
-# here, we take both the piece values and the piece-square tables and combine them
-# we also pad the table with two 0s on all sides for easier illegal-move catches
-for k, table in PIECE_SQUARE_TABLES.items():
-    padrow = lambda row: (0,) + tuple(x + PIECE[k] for x in row) + (0,)
-    PIECE_SQUARE_TABLES[k] = sum((padrow(table[i * 8 : i * 8 + 8]) for i in range(8)), ())
-    PIECE_SQUARE_TABLES[k] = (0,) * 20 + PIECE_SQUARE_TABLES[k] + (0,) * 20
-
 ##############################################
 
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
@@ -43,7 +36,7 @@ def insert(board, index, piece):
     '''
     Inserts piece into the board.
     '''
-    board[:index] + piece + board[index + 1 :]
+    return board[:index] + piece + board[index + 1 :]
 
 def load_from_fen():
     '''
@@ -80,7 +73,14 @@ def load_from_fen():
         padded_rows_board += padrow(raw_board[i * 8 : i * 8 + 8])
     # pad the rows with an " " on each side
     raw_board = " " * 20 + padded_rows_board + " " * 20
-    board = str(raw_board)
+    board = raw_board
+
+    # here, we take both the piece values and the piece-square tables and combine them
+    # we also pad the table with two 0s on all sides for easier illegal-move catches
+    for k, table in PIECE_SQUARE_TABLES.items():
+        padrow = lambda row: (0,) + tuple(x + PIECE[k] for x in row) + (0,)
+        PIECE_SQUARE_TABLES[k] = sum((padrow(table[i * 8 : i * 8 + 8]) for i in range(8)), ())
+        PIECE_SQUARE_TABLES[k] = (0,) * 20 + PIECE_SQUARE_TABLES[k] + (0,) * 20
 
     return State(board, 0, fen_split[2], ep, '-')
 
@@ -144,6 +144,14 @@ class BoardState(State):
                     if index == H1 and self.board[possible_move + W] == "K" and ("K" in self.cr):
                         yield Move(possible_move + W, possible_move + E, "")
 
+    def alpha_notation(self, row, col):
+        '''
+        Converts row and column into index number
+        '''
+        if row < 0 or row > 7 or col < 0 or col > 7: 
+            return
+        return A1 + (N * row) + (E * col)
+
     def move(self, move):
         '''
         Performs the move of a piece from one index to another
@@ -158,8 +166,8 @@ class BoardState(State):
         en_passant, king_passant = "-", "-"
         
         # move the piece
-        insert(board, end, piece_start)
-        insert(board, start, ".")
+        board = insert(board, end, piece_start)
+        board = insert(board, start, ".")
         
         # castling -
         # if we move our rook
@@ -174,18 +182,18 @@ class BoardState(State):
             # sets king passant square
             if abs(end - start) == 2:
                 kp = (start + end) // 2
-                insert(board, A1 if end < start else H1, ".")
-                insert(board, kp, "R")
+                board = insert(board, A1 if end < start else H1, ".")
+                board = insert(board, kp, "R")
         
         # pawn movement, promotion and en passant
         if piece_start == "P":
             if A8 <= end <= H8:
-                insert(board, end, promotion)
+                board = insert(board, end, promotion)
             if (end + S) == (start + N):
                 en_passant = start + N
             if end == self.ep:
                 # takes en passant square
-                insert(board, self.ep + S, ".")
+                board = insert(board, self.ep + S, ".")
         
         # returns State
         return State(board, score, castling_rights, en_passant, king_passant).rotate()
@@ -230,3 +238,4 @@ class BoardState(State):
                 value += PIECE_SQUARE_TABLES["P"][119 - (end + S)]
 
         return value
+

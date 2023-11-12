@@ -1,42 +1,82 @@
 import tkinter as tk
-from chessboard import *
+import chessboard
 from PIL import Image, ImageTk
 
 class GUI:
+
     # constants
     BOARD_SIZE = 8
     SQUARE_SIZE = 64
     COLOR1 = "#CBAC79"
     COLOR2 = "#8B603D"
+    HIGHLIGHT_COLOR = "#A87A30"
 
     # variables
     selected_piece = None
     focused = None
     images = {}
-    piece_images = {
-        Piece.WHITE.value + Piece.PAWN.value : 'pwhite',        Piece.WHITE.value + Piece.ROOK.value : 'rwhite', 
-        Piece.WHITE.value + Piece.KNIGHT.value : 'nwhite',    Piece.WHITE.value + Piece.BISHOP.value : 'bwhite', 
-        Piece.WHITE.value + Piece.QUEEN.value : 'qwhite',      Piece.WHITE.value + Piece.KING.value : 'kwhite',
-        Piece.BLACK.value + Piece.PAWN.value : 'pblack',        Piece.BLACK.value + Piece.ROOK.value : 'rblack', 
-        Piece.BLACK.value + Piece.KNIGHT.value : 'nblack',    Piece.BLACK.value + Piece.BISHOP.value : 'bblack', 
-        Piece.BLACK.value + Piece.QUEEN.value : 'qblack',      Piece.BLACK.value + Piece.KING.value : 'kblack'
-    }
 
-    def __init__(self, parent, chessboard):
-        # constructor
-        self.chessboard = chessboard
+    def __init__(self, parent, game):
+        '''
+        Constructor.
+        '''
+        # initializes the variables
+        self.game = game
         self.parent = parent
 
+        # initializes canvas
         canvas_width = self.SQUARE_SIZE * self.BOARD_SIZE
         canvas_height = self.SQUARE_SIZE * self.BOARD_SIZE
         self.canvas = tk.Canvas(parent, width=canvas_width, 
                                 height=canvas_height)
         self.canvas.pack(padx = self.SQUARE_SIZE, pady = self.SQUARE_SIZE)
         self.draw_board()
-        #self.canvas.bind("<Button-1>", self.square_clicked)
+        self.canvas.bind("<Button-1>", self.square_clicked)
 
-    # function to draw the chess board
-    def draw_board(self):    
+    def square_clicked(self, event):
+        '''
+        Gets the square clicked and either moves a piece
+        or selects the piece, revealing the available moves
+        '''
+        # initializes the values
+        selected_col = int(event.x / self.SQUARE_SIZE)
+        selected_row = 7 - int(event.y / self.SQUARE_SIZE)
+
+        print(str(selected_row) + " " + str(selected_col))
+
+        # grabs the index from row and col
+        pos = self.game.alpha_notation(selected_row, selected_col)
+        print(pos)
+
+        # if selected_piece exists, move it and reset variables
+        if self.selected_piece:
+            # self.shift(self.selected_piece[1], pos)
+            self.selected_piece = None
+            self.focused = None
+            # self.pieces = {}
+            self.draw_board()
+            self.draw_pieces()
+        self.focus(pos)
+        self.draw_board()
+
+    def focus(self, pos):
+        '''
+        Focuses on the piece and shows all available moves
+        '''
+        try:
+            piece = self.game.board[pos]
+            print(piece)
+        except:
+            piece = None
+        if piece is not None and piece.isupper():
+            self.selected_piece = (self.game.board[pos], pos)
+            # self.focused = list(map(pos,
+            #                     (self.chessboard[pos].moves_available(pos))))
+
+    def draw_board(self):
+        '''
+        Draws the base chess board.
+        '''
         colors = [self.COLOR1, self.COLOR2] # beige, brown
         for row in range(self.BOARD_SIZE):
             for col in range(self.BOARD_SIZE):
@@ -55,12 +95,17 @@ class GUI:
         self.canvas.tag_lower("area")
 
     def draw_pieces(self):
+        '''
+        Draws the pieces onto the chessboard
+        '''
         self.canvas.delete("occupied")
+        chessboard = self.game.board.replace(" ", "")
+        print(self.game.board)
         for index, piece in enumerate(chessboard):
-            if piece == 0: # a null space
+            if piece == ".": # a null space
                 continue
             # grab filename
-            filename = "chess_piece_icons/%s.png" % self.piece_images.get(int(piece))
+            filename = "chess_piece_icons/%s%s.png" % (piece.lower(), "white" if piece.isupper() else "black")
             row = index // 8 # from 0-7
             col = index % 8 # from 0-7
             piecename = "%s%s%s" % (piece, row, col)
@@ -76,20 +121,20 @@ class GUI:
             self.canvas.create_image(x0, y0, image = self.images[filename], 
                                     tags = (piecename, "occupied"), 
                                     anchor = tk.CENTER)
-            self.canvas.coords(piecename, x0, y0)
 
-def main():
+def main(game):
     root = tk.Tk()
     root.title("Chessboard")
     root.configure(background = "#454440") # background
-    #load_fen_position()
-    gui = GUI(root, chessboard)
+    gui = GUI(root, game)
     gui.draw_board()
     gui.draw_pieces()
     root.mainloop()
 
-
 if __name__ == "__main__":
-    # game = chessboard.Board()
-    # main(game)
-    main()
+    game = chessboard.BoardState(chessboard.INITIAL_STATE.board,
+                                chessboard.INITIAL_STATE.score,
+                                chessboard.INITIAL_STATE.cr,
+                                chessboard.INITIAL_STATE.ep,
+                                chessboard.INITIAL_STATE.kp)
+    main(game)
