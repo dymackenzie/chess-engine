@@ -155,7 +155,8 @@ class BoardState(State):
         score = self.score + self.points(move)
         
         # reset all the values
-        en_passant, king_passant = "-", "-"
+        castling_rights = self.cr
+        en_passant, king_passant = 0, 0
         
         # move the piece
         board = insert(board, end, piece_start)
@@ -187,17 +188,17 @@ class BoardState(State):
                 # takes en passant square
                 board = insert(board, self.ep + S, ".")
         
-        # returns State
-        return State(board, score, castling_rights, en_passant, king_passant).rotate()
+        # returns rotated board
+        return BoardState(board, score, castling_rights, en_passant, king_passant).rotate()
 
     def rotate(self):
         '''
         Rotates the board, negates the score, keeps the castling rights,
         and preserves en passant and king passant
         '''
-        ep = 119 - self.ep if self.ep != "-" else "-"
-        kp = 119 - self.kp if self.kp != "-" else "-"
-        return State(self.board[::-1].swapcase(), -self.score, self.cr, ep, kp)
+        ep = 119 - self.ep if self.ep != 0 else 0
+        kp = 119 - self.kp if self.kp != 0 else 0
+        return BoardState(self.board[::-1].swapcase(), -self.score, self.cr, ep, kp)
 
     def points(self, move):
         '''

@@ -17,12 +17,12 @@ class GUI:
     focused = None
     images = {}
 
-    def __init__(self, parent, game):
+    def __init__(self, parent, state):
         '''
         Constructor.
         '''
         # initializes the variables
-        self.game = game
+        self.state = state
         self.parent = parent
 
         # initializes canvas
@@ -44,44 +44,61 @@ class GUI:
         selected_row = 7 - int(event.y / self.SQUARE_SIZE)
 
         # grabs the index from row and col
-        pos = self.game.alpha_notation(selected_row, selected_col)
+        pos = self.state.alpha_notation(selected_row, selected_col)
 
         # if selected_piece exists, move it and reset variables
         if self.selected_piece:
-            # self.shift(self.selected_piece[1], pos)
+            # move the piece
+            self.step(self.selected_piece, pos)
             self.selected_piece = None
             self.focused = None
-            # self.pieces = {}
-            self.draw_board()
+            # reset board graphics
             self.draw_pieces()
         self.focus(pos)
         self.draw_board()
+
+    def step(self, start, end):
+        '''
+        Moves a piece graphically and sets new state from movement
+        '''
+        for move in self.available_moves:
+            if end == move.end and start == move.start:
+                self.state = self.state.move(move)
+                break
 
     def focus(self, pos):
         '''
         Focuses on the piece and shows all available moves
         '''
-        try:
-            piece = self.game.board[pos]
-        except:
-            piece = None
-        # if piece is active color and is not null, select it and
+        piece = self.state.board[pos]
+        # if piece is active color and is not ".", select it and
         # find all available moves according to that piece
-        if piece is not None and piece.isupper():
-            self.selected_piece = (self.game.board[pos], pos)
+        if piece != "." and piece.isupper():
+            self.selected_piece = pos
             self.focused = []
-            # converts index to row and col
-            to_row_col = lambda index: ((index // 10) - 2, (index % 10) - 1)
-            for move in self.available_moves:
+            self.move_indexes = []
+            # finds all moves in available_moves 
+            # that correspond to the piece
+            for move_index, move in enumerate(self.available_moves):
                 if move.start == pos:
-                    self.focused.append(to_row_col(move.end))
-            print(self.focused)
+                    # move_indexes should grow at same rate as focused does
+                    self.move_indexes.append(move_index)
+                    self.focused.append(self.to_row_col(move.end))
+
+    def to_row_col(self, index):
+        '''
+        Helper function to transform index into row and col
+        returns tuple
+        '''
+        return ((index // 10) - 2, (index % 10) - 1)
 
     def draw_board(self):
         '''
         Draws the base chess board.
         '''
-        self.available_moves = list(self.game.generate_moves())
+        # generates the list of available 
+        # moves everytime the function is called
+        self.available_moves = list(self.state.generate_moves())
         colors = [self.COLOR1, self.COLOR2] # beige, brown
         for row in range(self.BOARD_SIZE):
             for col in range(self.BOARD_SIZE):
@@ -90,6 +107,8 @@ class GUI:
                 # calculate the position of each square
                 x0, y0 = col * self.SQUARE_SIZE, row * self.SQUARE_SIZE
                 x1, y1 = x0 + self.SQUARE_SIZE, y0 + self.SQUARE_SIZE
+                # draws available moves if exists
+                # else, draws all rectangles
                 if (self.focused is not None and (row, col) in self.focused):
                     self.canvas.create_rectangle(x0, y0, x1, y1, 
                                             fill = self.HIGHLIGHT_COLOR, 
@@ -109,7 +128,7 @@ class GUI:
         Draws the pieces onto the chessboard
         '''
         self.canvas.delete("occupied")
-        chessboard = self.game.board.replace(" ", "")
+        chessboard = self.state.board.replace(" ", "")
         for index, piece in enumerate(chessboard):
             if piece == ".": # a null space
                 continue
@@ -131,19 +150,19 @@ class GUI:
                                     tags = (piecename, "occupied"), 
                                     anchor = tk.CENTER)
 
-def main(game):
+def main(state):
     root = tk.Tk()
     root.title("Chessboard")
     root.configure(background = "#454440") # background
-    gui = GUI(root, game)
+    gui = GUI(root, state)
     gui.draw_board()
     gui.draw_pieces()
     root.mainloop()
 
 if __name__ == "__main__":
-    game = chessboard.BoardState(chessboard.INITIAL_STATE.board,
+    state = chessboard.BoardState(chessboard.INITIAL_STATE.board,
                                 chessboard.INITIAL_STATE.score,
                                 chessboard.INITIAL_STATE.cr,
                                 chessboard.INITIAL_STATE.ep,
                                 chessboard.INITIAL_STATE.kp)
-    main(game)
+    main(state)
