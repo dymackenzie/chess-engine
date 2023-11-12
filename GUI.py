@@ -1,5 +1,5 @@
 import tkinter as tk
-from chess_engine import *
+from chessboard import *
 from PIL import Image, ImageTk
 
 class GUI:
@@ -56,10 +56,8 @@ class GUI:
 
     def draw_pieces(self):
         self.canvas.delete("occupied")
-        index = 0
-        for piece in chessboard:
+        for index, piece in enumerate(chessboard):
             if piece == 0: # a null space
-                index += 1
                 continue
             # grab filename
             filename = "chess_piece_icons/%s.png" % self.piece_images.get(int(piece))
@@ -79,8 +77,6 @@ class GUI:
                                     tags = (piecename, "occupied"), 
                                     anchor = tk.CENTER)
             self.canvas.coords(piecename, x0, y0)
-            # move the index along
-            index += 1
 
 def main():
     root = tk.Tk()
