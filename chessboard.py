@@ -188,17 +188,17 @@ class BoardState(State):
                 insert(board, self.ep + S, ".")
         
         # returns State
-        return State(board, self.score, castling_rights, en_passant, king_passant).rotate()
+        return State(board, score, castling_rights, en_passant, king_passant).rotate()
 
-    # def rotate(self):
-    #     '''
-    #     Rotates the board, negates the score, keeps the castling rights,
-    #     and preserves en passant and king passant
-    #     '''
-    #     ep = 119 - self.ep if self.ep != "-" else "-"
-    #     kp = 119 - self.kp if self.kp != "-" else "-"
-    #     return State(self.board[::-1].swapcase(), -self.score, self.cr, ep, kp)
-    
+    def rotate(self):
+        '''
+        Rotates the board, negates the score, keeps the castling rights,
+        and preserves en passant and king passant
+        '''
+        ep = 119 - self.ep if self.ep != "-" else "-"
+        kp = 119 - self.kp if self.kp != "-" else "-"
+        return State(self.board[::-1].swapcase(), -self.score, self.cr, ep, kp)
+
     # def points(self, move):
     #     '''
     #     Score the value of the move
@@ -208,7 +208,7 @@ class BoardState(State):
     #     # finds move in the pst boards
     #     value = PIECE_SQUARE_TABLES[p_start][end] - PIECE_SQUARE_TABLES[p_start][start]
     #     # Capture
-    #     if p_end != ".":
+    #     if p_end.islower():
     #         value += PIECE[p_end.upper()]
     #     # Castling check detection
 
