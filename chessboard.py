@@ -26,11 +26,10 @@ for k, table in PIECE_SQUARE_TABLES.items():
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
 
 # initializes data structure for initial state
-State = namedtuple("State", "board active wc bc ep kp")
+State = namedtuple("State", "board score cr ep kp")
 # board - 120 char representation of the board
-# active - active color
-# wc - white castling rights, UPPERCASE
-# bc - black castling rights, lowercase
+# ac - active color
+# cr - castling rights, UPPERCASE for white, lowercase for black
 # ep - en passant square
 # kp - the king passant square
 
@@ -40,22 +39,24 @@ Move = namedtuple("Move", "start end promote")
 # end - end index
 # promote - if there is a promotion event
 
-def load_from_fen(initial_state):
+def insert(board, index, piece):
+    '''
+    Inserts piece into the board.
+    '''
+    board[:index] + piece + board[index + 1 :]
+
+def load_from_fen():
     '''
     Takes the tuple of initial state and assigns FEN values to it.
     '''
     # all the data from the FEN string
     fen_split = STARTING_FEN.split(' ')
-    initial_state = initial_state._replace(active = fen_split[1])
-    # extract UPPERCASE letters from castling_rights
-    initial_state = initial_state._replace(wc = ''.join(c for c in fen_split[2] if c.isupper()))
-    # extract lowercase letters from castling_rights
-    initial_state = initial_state._replace(bc = ''.join(c for c in fen_split[2] if c.islower()))
 
     # convert enpassant square from standard notation into index
-    ep_notation = fen_split[3]
-    if ep_notation != "-":
-        initial_state = initial_state._replace(A1 + string.ascii_lowercase.index(ep_notation[0]) + (ep_notation[1] * 10))
+    ep = fen_split[3]
+    if ep != "-":
+        ep = A1 + string.ascii_lowercase.index(ep[0]) + (ep[1] * 10)
+    else: ep == "-"
 
     # initialize board with 64 empty characters
     raw_board = "." * 64
@@ -68,8 +69,7 @@ def load_from_fen(initial_state):
             if x.isnumeric():
                 board_index += int(x)
             else:
-                place_piece = lambda board, i, p: board[:i] + p + board[i + 1 :]
-                raw_board = place_piece(raw_board, board_index, x)
+                raw_board = insert(raw_board, board_index, x)
                 board_index += 1
 
     # initialize padded rows board
@@ -80,11 +80,11 @@ def load_from_fen(initial_state):
         padded_rows_board += padrow(raw_board[i * 8 : i * 8 + 8])
     # pad the rows with an " " on each side
     raw_board = " " * 20 + padded_rows_board + " " * 20
-    initial_state = initial_state._replace(board = raw_board)
+    board = str(raw_board)
 
-    return initial_state # returns modified namedtuple
+    return State(board, 0, fen_split[2], ep, '-')
 
-INITIAL_STATE = load_from_fen(State('board', 'active', 'wc', 'bc', 'ep', 'kp')) # values will be replaced by function
+INITIAL_STATE = load_from_fen()
 
 ############################################
 
@@ -139,7 +139,81 @@ class BoardState(State):
                     if piece in "PNK" or pos.islower():
                         break
                     # castling
-                    if index == A1 and self.board[possible_move + E] == "K" and ("K" in self.wc):
+                    if index == A1 and self.board[possible_move + E] == "K" and ("Q" in self.cr):
                         yield Move(possible_move + E, possible_move + W, "")
-                    if index == H1 and self.board[possible_move + W] == "K" and ("Q" in self.wc):
+                    if index == H1 and self.board[possible_move + W] == "K" and ("K" in self.cr):
                         yield Move(possible_move + W, possible_move + E, "")
+
+    def move(self, move):
+        '''
+        Performs the move of a piece from one index to another
+        '''
+        # initialize values
+        start, end, promotion = move
+        piece_start = self.board[start]
+        board = self.board # copies value
+        score = self.score + self.points(move)
+        
+        # reset all the values
+        en_passant, king_passant = "-", "-"
+        
+        # move the piece
+        insert(board, end, piece_start)
+        insert(board, start, ".")
+        
+        # castling -
+        # if we move our rook
+        if start == A1: castling_rights = self.cr.replace("Q", "")
+        if start == H1: castling_rights = self.cr.replace("K", "")
+        # if we capture opponent's rook
+        if end == A8: castling_rights = self.cr.replace("k", "")
+        if end == H8: castling_rights = self.cr.replace("q", "")
+        # if king moves
+        if piece_start == "K":
+            castling_rights = self.cr.replace("Q", "").replace("K", "")
+            # sets king passant square
+            if abs(end - start) == 2:
+                kp = (start + end) // 2
+                insert(board, A1 if end < start else H1, ".")
+                insert(board, kp, "R")
+        
+        # pawn movement, promotion and en passant
+        if piece_start == "P":
+            if A8 <= end <= H8:
+                insert(board, end, promotion)
+            if (end + S) == (start + N):
+                en_passant = start + N
+            if end == self.ep:
+                # takes en passant square
+                insert(board, self.ep + S, ".")
+        
+        # returns State
+        return State(board, self.score, castling_rights, en_passant, king_passant).rotate()
+
+    # def rotate(self):
+    #     '''
+    #     Rotates the board, negates the score, keeps the castling rights,
+    #     and preserves en passant and king passant
+    #     '''
+    #     ep = 119 - self.ep if self.ep != "-" else "-"
+    #     kp = 119 - self.kp if self.kp != "-" else "-"
+    #     return State(self.board[::-1].swapcase(), -self.score, self.cr, ep, kp)
+    
+    # def points(self, move):
+    #     '''
+    #     Score the value of the move
+    #     '''
+    #     start, end, promotion = move
+    #     p_start, p_end = self.board[start], self.board[end]
+    #     # finds move in the pst boards
+    #     value = PIECE_SQUARE_TABLES[p_start][end] - PIECE_SQUARE_TABLES[p_start][start]
+    #     # Capture
+    #     if p_end != ".":
+    #         value += PIECE[p_end.upper()]
+    #     # Castling check detection
+
+    #     # Castling
+
+    #     # Special pawn stuff
+
+    #     return 
