@@ -49,7 +49,7 @@ def load_from_fen():
     ep = fen_split[3]
     if ep != "-":
         ep = A1 + string.ascii_lowercase.index(ep[0]) + (ep[1] * 10)
-    else: ep == "-"
+    else: ep == 0
 
     # initialize board with 64 empty characters
     raw_board = "." * 64
@@ -82,14 +82,14 @@ def load_from_fen():
         PIECE_SQUARE_TABLES[k] = sum((padrow(table[i * 8 : i * 8 + 8]) for i in range(8)), ())
         PIECE_SQUARE_TABLES[k] = (0,) * 20 + PIECE_SQUARE_TABLES[k] + (0,) * 20
 
-    return State(board, 0, fen_split[2], ep, '-')
+    return State(board, 0, fen_split[2], ep, 0)
 
 INITIAL_STATE = load_from_fen()
 
 ############################################
 
 class BoardState(State):
-    
+
     def generate_moves(self):
         '''
         Returns (piece index, list of available moves) for all indexes.
@@ -143,14 +143,6 @@ class BoardState(State):
                         yield Move(possible_move + E, possible_move + W, "")
                     if index == H1 and self.board[possible_move + W] == "K" and ("K" in self.cr):
                         yield Move(possible_move + W, possible_move + E, "")
-
-    def alpha_notation(self, row, col):
-        '''
-        Converts row and column into index number
-        '''
-        if row < 0 or row > 7 or col < 0 or col > 7: 
-            return
-        return A1 + (N * row) + (E * col)
 
     def move(self, move):
         '''
@@ -239,3 +231,10 @@ class BoardState(State):
 
         return value
 
+    def alpha_notation(self, row, col):
+        '''
+        Converts row and column into index number
+        '''
+        if row < 0 or row > 7 or col < 0 or col > 7: 
+            return
+        return A1 + (N * row) + (E * col)

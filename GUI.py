@@ -12,6 +12,7 @@ class GUI:
     HIGHLIGHT_COLOR = "#A87A30"
 
     # variables
+    available_moves = None
     selected_piece = None
     focused = None
     images = {}
@@ -42,11 +43,8 @@ class GUI:
         selected_col = int(event.x / self.SQUARE_SIZE)
         selected_row = 7 - int(event.y / self.SQUARE_SIZE)
 
-        print(str(selected_row) + " " + str(selected_col))
-
         # grabs the index from row and col
         pos = self.game.alpha_notation(selected_row, selected_col)
-        print(pos)
 
         # if selected_piece exists, move it and reset variables
         if self.selected_piece:
@@ -65,18 +63,25 @@ class GUI:
         '''
         try:
             piece = self.game.board[pos]
-            print(piece)
         except:
             piece = None
+        # if piece is active color and is not null, select it and
+        # find all available moves according to that piece
         if piece is not None and piece.isupper():
             self.selected_piece = (self.game.board[pos], pos)
-            # self.focused = list(map(pos,
-            #                     (self.chessboard[pos].moves_available(pos))))
+            self.focused = []
+            # converts index to row and col
+            to_row_col = lambda index: ((index // 10) - 2, (index % 10) - 1)
+            for move in self.available_moves:
+                if move.start == pos:
+                    self.focused.append(to_row_col(move.end))
+            print(self.focused)
 
     def draw_board(self):
         '''
         Draws the base chess board.
         '''
+        self.available_moves = list(self.game.generate_moves())
         colors = [self.COLOR1, self.COLOR2] # beige, brown
         for row in range(self.BOARD_SIZE):
             for col in range(self.BOARD_SIZE):
@@ -85,8 +90,13 @@ class GUI:
                 # calculate the position of each square
                 x0, y0 = col * self.SQUARE_SIZE, row * self.SQUARE_SIZE
                 x1, y1 = x0 + self.SQUARE_SIZE, y0 + self.SQUARE_SIZE
-                self.canvas.create_rectangle(x0, y0, 
-                                            x1, y1, 
+                if (self.focused is not None and (row, col) in self.focused):
+                    self.canvas.create_rectangle(x0, y0, x1, y1, 
+                                            fill = self.HIGHLIGHT_COLOR, 
+                                            outline = "",
+                                            tags = "area")
+                else:
+                    self.canvas.create_rectangle(x0, y0, x1, y1, 
                                             fill = color, 
                                             outline = "",
                                             tags = "area")
@@ -100,7 +110,6 @@ class GUI:
         '''
         self.canvas.delete("occupied")
         chessboard = self.game.board.replace(" ", "")
-        print(self.game.board)
         for index, piece in enumerate(chessboard):
             if piece == ".": # a null space
                 continue
