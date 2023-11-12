@@ -199,21 +199,34 @@ class BoardState(State):
         kp = 119 - self.kp if self.kp != "-" else "-"
         return State(self.board[::-1].swapcase(), -self.score, self.cr, ep, kp)
 
-    # def points(self, move):
-    #     '''
-    #     Score the value of the move
-    #     '''
-    #     start, end, promotion = move
-    #     p_start, p_end = self.board[start], self.board[end]
-    #     # finds move in the pst boards
-    #     value = PIECE_SQUARE_TABLES[p_start][end] - PIECE_SQUARE_TABLES[p_start][start]
-    #     # Capture
-    #     if p_end.islower():
-    #         value += PIECE[p_end.upper()]
-    #     # Castling check detection
+    def points(self, move):
+        '''
+        Score the value of the move
+        '''
+        start, end, promotion = move
+        p_start, p_end = self.board[start], self.board[end]
 
-    #     # Castling
+        # finds move in the pst boards
+        value = PIECE_SQUARE_TABLES[p_start][end] - PIECE_SQUARE_TABLES[p_start][start]
 
-    #     # Special pawn stuff
+        # captures a piece
+        if p_end.islower():
+            value += PIECE[p_end.upper()]
+        
+        # checks if castled
+        if abs(end - self.kp) < 2:
+            value += PIECE_SQUARE_TABLES["K"][119 - end]
+    
+        # castle
+        if p_start == "K" and abs(start - end) == 2:
+            value += PIECE_SQUARE_TABLES["R"][(start + end) // 2]
+            value -= PIECE_SQUARE_TABLES["R"][A1 if end < start else H1]
 
-    #     return 
+        # pawn promotion and enpassant
+        if p_start == "P":
+            if A8 <= end <= H8:
+                value += PIECE_SQUARE_TABLES[promotion][end] - PIECE_SQUARE_TABLES["P"][end]
+            if end == self.ep:
+                value += PIECE_SQUARE_TABLES["P"][119 - (end + S)]
+
+        return value
