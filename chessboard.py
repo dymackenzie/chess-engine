@@ -1,7 +1,6 @@
 import time, math, string
 from itertools import count
 from collections import namedtuple, defaultdict
-from constants import *
 
 # chess_board = [
 #    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
@@ -15,13 +14,86 @@ from constants import *
 # ]
 
 ##############################################
+# Piece-Square Tables
+##############################################
 
-STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+# values for each pieces
+PIECE = {"P": 100, "N": 280, "B": 320, "R": 479, "Q": 929, "K": 60000}
+# Piece-Square tables to determine where a piece has the most value
+PIECE_SQUARE_TABLES = {
+    'P': (   0,   0,   0,   0,   0,   0,   0,   0,
+            78,  83,  86,  73, 102,  82,  85,  90,
+            7,  29,  21,  44,  40,  31,  44,   7,
+            -17,  16,  -2,  15,  14,   0,  15, -13,
+            -26,   3,  10,   9,   6,   1,   0, -23,
+            -22,   9,   5, -11, -10,  -2,   3, -19,
+            -31,   8,  -7, -37, -36, -14,   3, -31,
+            0,   0,   0,   0,   0,   0,   0,   0),
+    'N': ( -66, -53, -75, -75, -10, -55, -58, -70,
+            -3,  -6, 100, -36,   4,  62,  -4, -14,
+            10,  67,   1,  74,  73,  27,  62,  -2,
+            24,  24,  45,  37,  33,  41,  25,  17,
+            -1,   5,  31,  21,  22,  35,   2,   0,
+            -18,  10,  13,  22,  18,  15,  11, -14,
+            -23, -15,   2,   0,   2,   0, -23, -20,
+            -74, -23, -26, -24, -19, -35, -22, -69),
+    'B': ( -59, -78, -82, -76, -23,-107, -37, -50,
+            -11,  20,  35, -42, -39,  31,   2, -22,
+            -9,  39, -32,  41,  52, -10,  28, -14,
+            25,  17,  20,  34,  26,  25,  15,  10,
+            13,  10,  17,  23,  17,  16,   0,   7,
+            14,  25,  24,  15,   8,  25,  20,  15,
+            19,  20,  11,   6,   7,   6,  20,  16,
+            -7,   2, -15, -12, -14, -15, -10, -10),
+    'R': (  35,  29,  33,   4,  37,  33,  56,  50,
+            55,  29,  56,  67,  55,  62,  34,  60,
+            19,  35,  28,  33,  45,  27,  25,  15,
+            0,   5,  16,  13,  18,  -4,  -9,  -6,
+            -28, -35, -16, -21, -13, -29, -46, -30,
+            -42, -28, -42, -25, -25, -35, -26, -46,
+            -53, -38, -31, -26, -29, -43, -44, -53,
+            -30, -24, -18,   5,  -2, -18, -31, -32),
+    'Q': (   6,   1,  -8,-104,  69,  24,  88,  26,
+            14,  32,  60, -10,  20,  76,  57,  24,
+            -2,  43,  32,  60,  72,  63,  43,   2,
+            1, -16,  22,  17,  25,  20, -13,  -6,
+            -14, -15,  -2,  -5,  -1, -10, -20, -22,
+            -30,  -6, -13, -11, -16, -11, -16, -27,
+            -36, -18,   0, -19, -15, -15, -21, -38,
+            -39, -30, -31, -13, -31, -36, -34, -42),
+    'K': (   4,  54,  47, -99, -99,  60,  83, -62,
+            -32,  10,  55,  56,  56,  55,  10,   3,
+            -62,  12, -57,  44, -67,  28,  37, -31,
+            -55,  50,  11,  -4, -19,  13,   0, -49,
+            -55, -43, -52, -28, -51, -47,  -8, -50,
+            -47, -42, -43, -79, -64, -32, -29, -32,
+            -4,   3, -14, -50, -57, -18,  13,   4,
+            17,  30,  -3, -14,   6,  -1,  40,  18),
+}
+
+#################################################
+
+# Lists of possible moves for each piece type.
+A1, H1, A8, H8 = 91, 98, 21, 28
+N, E, S, W = -10, 1, 10, -1
+DIRECTIONS = {
+    "P": (N, N+N, N+W, N+E),
+    "N": (N+N+E, E+N+E, E+S+E, S+S+E, S+S+W, W+S+W, W+N+W, N+N+W),
+    "B": (N+E, S+E, S+W, N+W),
+    "R": (N, E, S, W),
+    "Q": (N, E, S, W, N+E, S+E, S+W, N+W),
+    "K": (N, E, S, W, N+E, S+E, S+W, N+W)
+}
+
+##############################################
+
+STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0"
 
 # initializes data structure for initial state
-State = namedtuple("State", "board score cr ep kp")
+State = namedtuple("State", "board score ac cr ep kp")
 # board - 120 char representation of the board
-# ac - active color
+# score - score evaluation of the board
+# ac - active color (0 is white, 1 is black)
 # cr - castling rights, UPPERCASE for white, lowercase for black
 # ep - en passant square
 # kp - the king passant square
@@ -45,11 +117,14 @@ def load_from_fen():
     # all the data from the FEN string
     fen_split = STARTING_FEN.split(' ')
 
+    # active color
+    ac = 0 if fen_split[1] == "w" else 1
+
     # convert enpassant square from standard notation into index
     ep = fen_split[3]
     if ep != "-":
-        ep = A1 + string.ascii_lowercase.index(ep[0]) + (ep[1] * 10)
-    else: ep == 0
+        ep = A1 + string.ascii_lowercase.index(ep[0]) + int((ep[1] * 10))
+    else: ep = 0
 
     # initialize board with 64 empty characters
     raw_board = "." * 64
@@ -82,7 +157,7 @@ def load_from_fen():
         PIECE_SQUARE_TABLES[k] = sum((padrow(table[i * 8 : i * 8 + 8]) for i in range(8)), ())
         PIECE_SQUARE_TABLES[k] = (0,) * 20 + PIECE_SQUARE_TABLES[k] + (0,) * 20
 
-    return State(board, 0, fen_split[2], ep, 0)
+    return State(board, 0, ac, fen_split[2], ep, 0)
 
 INITIAL_STATE = load_from_fen()
 
@@ -92,7 +167,7 @@ class BoardState(State):
 
     def generate_moves(self):
         '''
-        Returns (piece index, list of available moves) for all indexes.
+        Returns list of available moves for all indexes.
         '''
         # index is initial position
         for index, piece in enumerate(self.board):
@@ -131,10 +206,16 @@ class BoardState(State):
                         # promote to all iterations once pawn gets to the back rank
                         if A8 <= possible_move <= H8:
                             for promotion in "NBRQ":
-                                yield Move(index, possible_move, promotion)
+                                if self.ac == 1: # opposite color
+                                    yield Move(119 - index, 119 - possible_move, promotion)
+                                else:
+                                    yield Move(index, possible_move, promotion)
                             break
                     # if all the tests pass, then move the piece.
-                    yield Move(index, possible_move, "")
+                    if self.ac == 1: # if opposite color
+                        yield Move(119 - index, 119 - possible_move, "")
+                    else:
+                        yield Move(index, possible_move, "")
                     # stop sliding
                     if piece in "PNK" or pos.islower():
                         break
@@ -155,6 +236,7 @@ class BoardState(State):
         score = self.score + self.points(move)
         
         # reset all the values
+        ac = 0 if self.ac == 1 else 1
         castling_rights = self.cr
         en_passant, king_passant = 0, 0
         
@@ -189,7 +271,7 @@ class BoardState(State):
                 board = insert(board, self.ep + S, ".")
         
         # returns rotated board
-        return BoardState(board, score, castling_rights, en_passant, king_passant).rotate()
+        return BoardState(board, score, ac, castling_rights, en_passant, king_passant).rotate()
 
     def rotate(self):
         '''
@@ -198,7 +280,8 @@ class BoardState(State):
         '''
         ep = 119 - self.ep if self.ep != 0 else 0
         kp = 119 - self.kp if self.kp != 0 else 0
-        return BoardState(self.board[::-1].swapcase(), -self.score, self.cr, ep, kp)
+        return BoardState(self.board[::-1].swapcase(), -self.score, self.ac, self.cr, ep, kp)
+
 
     def points(self, move):
         '''

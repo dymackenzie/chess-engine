@@ -12,7 +12,8 @@ class GUI:
     HIGHLIGHT_COLOR = "#A87A30"
 
     # variables
-    available_moves = None
+    icolor = ""
+    available_moves = []
     selected_piece = None
     focused = None
     images = {}
@@ -24,14 +25,19 @@ class GUI:
         # initializes the variables
         self.state = state
         self.parent = parent
+        self.icolor = self.state.ac
 
         # initializes canvas
         canvas_width = self.SQUARE_SIZE * self.BOARD_SIZE
         canvas_height = self.SQUARE_SIZE * self.BOARD_SIZE
-        self.canvas = tk.Canvas(parent, width=canvas_width, 
-                                height=canvas_height)
+        self.canvas = tk.Canvas(parent, width=canvas_width, height=canvas_height)
         self.canvas.pack(padx = self.SQUARE_SIZE, pady = self.SQUARE_SIZE)
+
+        # draws board and pieces
         self.draw_board()
+        self.draw_pieces()
+
+        # adds click listener
         self.canvas.bind("<Button-1>", self.square_clicked)
 
     def square_clicked(self, event):
@@ -45,6 +51,8 @@ class GUI:
 
         # grabs the index from row and col
         pos = self.state.alpha_notation(selected_row, selected_col)
+        # handles opponent's turn
+        pos = pos if self.icolor == 0 else 119 - pos
 
         # if selected_piece exists, move it and reset variables
         if self.selected_piece:
@@ -52,8 +60,6 @@ class GUI:
             self.step(self.selected_piece, pos)
             self.selected_piece = None
             self.focused = None
-            # reset board graphics
-            self.draw_pieces()
         self.focus(pos)
         self.draw_board()
 
@@ -61,10 +67,22 @@ class GUI:
         '''
         Moves a piece graphically and sets new state from movement
         '''
-        for move in self.available_moves:
-            if end == move.end and start == move.start:
-                self.state = self.state.move(move)
-                break
+        # handles opponent's turn
+        end = end if self.icolor == 0 else 119 - end
+        if (chessboard.A8 <= end <= chessboard.H8 and self.state.board[self.selected_piece].upper() == "P"):
+            # if move is promotion
+            self.state = self.state.move(chessboard.Move(start, end, "Q")) # TODO: figure out how to select between promotion types
+        else:
+            # find corresponding move in list of available moves
+            for move in self.available_moves:
+                if end == move.end and start == move.start:
+                    # set state to new move
+                    # handles opponent's turn
+                    self.state = self.state.move(chessboard.Move(119 - start, 119 - end, "")) if self.icolor == 1 else self.state.move(move)
+                    # draw pieces and change playing_color
+                    self.icolor = 0 if self.icolor == 1 else 1
+                    self.draw_pieces()
+                    break
 
     def focus(self, pos):
         '''
@@ -74,15 +92,13 @@ class GUI:
         # if piece is active color and is not ".", select it and
         # find all available moves according to that piece
         if piece != "." and piece.isupper():
+            pos = pos if self.icolor == 0 else 119 - pos
             self.selected_piece = pos
-            self.focused = []
-            self.move_indexes = []
+            self.focused = [self.to_row_col(pos)]
             # finds all moves in available_moves 
             # that correspond to the piece
-            for move_index, move in enumerate(self.available_moves):
+            for move in self.available_moves:
                 if move.start == pos:
-                    # move_indexes should grow at same rate as focused does
-                    self.move_indexes.append(move_index)
                     self.focused.append(self.to_row_col(move.end))
 
     def to_row_col(self, index):
@@ -96,9 +112,6 @@ class GUI:
         '''
         Draws the base chess board.
         '''
-        # generates the list of available 
-        # moves everytime the function is called
-        self.available_moves = list(self.state.generate_moves())
         colors = [self.COLOR1, self.COLOR2] # beige, brown
         for row in range(self.BOARD_SIZE):
             for col in range(self.BOARD_SIZE):
@@ -109,14 +122,13 @@ class GUI:
                 x1, y1 = x0 + self.SQUARE_SIZE, y0 + self.SQUARE_SIZE
                 # draws available moves if exists
                 # else, draws all rectangles
+                self.canvas.create_rectangle(x0, y0, x1, y1, 
+                                            fill = color, 
+                                            outline = "",
+                                            tags = "area")
                 if (self.focused is not None and (row, col) in self.focused):
                     self.canvas.create_rectangle(x0, y0, x1, y1, 
                                             fill = self.HIGHLIGHT_COLOR, 
-                                            outline = "",
-                                            tags = "area")
-                else:
-                    self.canvas.create_rectangle(x0, y0, x1, y1, 
-                                            fill = color, 
                                             outline = "",
                                             tags = "area")
         # in order that pieces show in front of squares
@@ -128,7 +140,14 @@ class GUI:
         Draws the pieces onto the chessboard
         '''
         self.canvas.delete("occupied")
+        # generates the list of available 
+        # moves everytime the function is called
+        self.available_moves = list(self.state.generate_moves())
+        # copy the state of the game board
         chessboard = self.state.board.replace(" ", "")
+        # handles opponent's turn
+        chessboard = chessboard[::-1].swapcase() if self.icolor == 1 else chessboard
+
         for index, piece in enumerate(chessboard):
             if piece == ".": # a null space
                 continue
@@ -151,17 +170,19 @@ class GUI:
                                     anchor = tk.CENTER)
 
 def main(state):
+    '''
+    Main function.
+    '''
     root = tk.Tk()
     root.title("Chessboard")
     root.configure(background = "#454440") # background
     gui = GUI(root, state)
-    gui.draw_board()
-    gui.draw_pieces()
     root.mainloop()
 
 if __name__ == "__main__":
     state = chessboard.BoardState(chessboard.INITIAL_STATE.board,
                                 chessboard.INITIAL_STATE.score,
+                                chessboard.INITIAL_STATE.ac,
                                 chessboard.INITIAL_STATE.cr,
                                 chessboard.INITIAL_STATE.ep,
                                 chessboard.INITIAL_STATE.kp)
