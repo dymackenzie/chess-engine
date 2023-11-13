@@ -1,5 +1,6 @@
 import tkinter as tk
 import chessboard
+from copy import deepcopy
 from PIL import Image, ImageTk
 
 class GUI:
@@ -12,13 +13,12 @@ class GUI:
     HIGHLIGHT_COLOR = "#A87A30"
 
     # variables
-    icolor = ""
-    available_moves = []
     selected_piece = None
     focused = None
+    available_moves = []
     images = {}
 
-    def __init__(self, parent, state):
+    def __init__(self, parent, state) -> None:
         '''
         Constructor.
         '''
@@ -26,6 +26,9 @@ class GUI:
         self.state = state
         self.parent = parent
         self.icolor = self.state.ac
+
+        # Kings class
+        self.kings = Kings(self.state, self.icolor)
 
         # initializes canvas
         canvas_width = self.SQUARE_SIZE * self.BOARD_SIZE
@@ -40,7 +43,7 @@ class GUI:
         # adds click listener
         self.canvas.bind("<Button-1>", self.square_clicked)
 
-    def square_clicked(self, event):
+    def square_clicked(self, event) -> None:
         '''
         Gets the square clicked and either moves a piece
         or selects the piece, revealing the available moves
@@ -63,7 +66,7 @@ class GUI:
         self.focus(pos)
         self.draw_board()
 
-    def step(self, start, end):
+    def step(self, start, end) -> None:
         '''
         Moves a piece graphically and sets new state from movement
         '''
@@ -78,13 +81,16 @@ class GUI:
                 if end == move.end and start == move.start:
                     # set state to new move
                     # handles opponent's turn
-                    self.state = self.state.move(chessboard.Move(119 - start, 119 - end, "")) if self.icolor == 1 else self.state.move(move)
-                    # draw pieces and change playing_color
+                    self.state = self.state.move(chessboard.Move(119 - move.start, 119 - move.end, "")) if self.icolor == 1 else self.state.move(move)
+                    # switch variables as needed
+                    self.kings = Kings(self.state, self.icolor)
+                    if self.kings.in_check():
+                        print("Check")
                     self.icolor = 0 if self.icolor == 1 else 1
                     self.draw_pieces()
                     break
 
-    def focus(self, pos):
+    def focus(self, pos) -> None:
         '''
         Focuses on the piece and shows all available moves
         '''
@@ -101,14 +107,14 @@ class GUI:
                 if move.start == pos:
                     self.focused.append(self.to_row_col(move.end))
 
-    def to_row_col(self, index):
+    def to_row_col(self, index) -> tuple:
         '''
         Helper function to transform index into row and col
         returns tuple
         '''
         return ((index // 10) - 2, (index % 10) - 1)
 
-    def draw_board(self):
+    def draw_board(self) -> None:
         '''
         Draws the base chess board.
         '''
@@ -135,7 +141,7 @@ class GUI:
         self.canvas.tag_raise("occupied")
         self.canvas.tag_lower("area")
 
-    def draw_pieces(self):
+    def draw_pieces(self) -> None:
         '''
         Draws the pieces onto the chessboard
         '''
@@ -168,6 +174,50 @@ class GUI:
             self.canvas.create_image(x0, y0, image = self.images[filename], 
                                     tags = (piecename, "occupied"), 
                                     anchor = tk.CENTER)
+
+class Kings:
+
+    def __init__(self, state, icolor) -> None:
+        '''
+        Constructor.
+        '''
+        self.state = state
+        self.icolor = icolor
+        for index, piece in enumerate(state.board):
+            if piece == "K": 
+                self.i_king = index if self.icolor == 0 else 119 - index
+            if piece == "k": 
+                self.o_king = index if self.icolor == 0 else 119 - index
+        
+        # generating moves for UPPERCASE letters
+        self.available_moves = list(state.generate_moves())
+
+        print("I: " + str(self.i_king))
+        print("O: " + str(self.o_king))
+        
+    def in_check(self) -> bool:
+        '''
+        Check if opposing king is in check of active pieces
+        '''
+        for x in self.available_moves:
+            print(x.end)
+            if self.o_king == x.end:
+                return True
+        return False
+
+    # def in_check_after_move(self, start, end) -> bool:
+    #     '''
+    #     Make an instance of every move and check if own king is
+    #     in check after every opponent's move
+    #     '''
+    #     check = False
+    #     self.state = self.state.move(chessboard.Move(start, end, ""))
+    #     for move in self.available_moves:
+    #         self.state = self.state.move(move)
+    #         temporary = deepcopy(self)
+    #         check = temporary.in_check()
+    #     return check
+
 
 def main(state):
     '''
