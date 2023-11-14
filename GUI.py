@@ -28,7 +28,7 @@ class GUI:
         self.icolor = self.state.ac
 
         # Kings class
-        self.kings = Kings(self.state, self.icolor)
+        self.kings = Kings(self.state, self.state.ac)
 
         # initializes canvas
         canvas_width = self.SQUARE_SIZE * self.BOARD_SIZE
@@ -41,9 +41,9 @@ class GUI:
         self.draw_pieces()
 
         # adds click listener
-        self.canvas.bind("<Button-1>", self.square_clicked)
+        self.canvas.bind("<Button-1>", self.square)
 
-    def square_clicked(self, event) -> None:
+    def square(self, event) -> None:
         '''
         Gets the square clicked and either moves a piece
         or selects the piece, revealing the available moves
@@ -55,7 +55,7 @@ class GUI:
         # grabs the index from row and col
         pos = self.state.alpha_notation(selected_row, selected_col)
         # handles opponent's turn
-        pos = pos if self.icolor == 0 else 119 - pos
+        pos = self.handle_opponent(pos) if self.icolor == 1 else pos
 
         # if selected_piece exists, move it and reset variables
         if self.selected_piece:
@@ -70,25 +70,58 @@ class GUI:
         '''
         Moves a piece graphically and sets new state from movement
         '''
-        # handles opponent's turn
-        end = end if self.icolor == 0 else 119 - end
-        if (chessboard.A8 <= end <= chessboard.H8 and self.state.board[self.selected_piece].upper() == "P"):
-            # if move is promotion
-            self.state = self.state.move(chessboard.Move(start, end, "Q")) # TODO: figure out how to select between promotion types
-        else:
-            # find corresponding move in list of available moves
-            for move in self.available_moves:
-                if end == move.end and start == move.start:
-                    # set state to new move
-                    # handles opponent's turn
-                    self.state = self.state.move(chessboard.Move(119 - move.start, 119 - move.end, "")) if self.icolor == 1 else self.state.move(move)
-                    # switch variables as needed
-                    self.kings = Kings(self.state, self.icolor)
-                    if self.kings.in_check():
-                        print("Check")
-                    self.icolor = 0 if self.icolor == 1 else 1
+        end = self.handle_opponent(end) if self.icolor == 1 else end
+        # find corresponding move in list of available moves
+        for move in self.available_moves:
+            if end == move.end and start == move.start:
+
+                if ((chessboard.A8 <= end <= chessboard.H8 or chessboard.A1 <= end <= chessboard.H1)
+                    and self.state.board[self.selected_piece].upper() == "P"):
+                    # if pawn move is a promotion move
+                    # TODO: figure out how to select between promotion types
+                    self.state = self.state.move(chessboard.Move(start, end, "Q"))
                     self.draw_pieces()
                     break
+                
+                # if after move made the king is still in check, don't allow
+                if self.in_check_after_move(move):
+                    break
+
+                # set state to new move and handles opponent's turn
+                self.state = self.state.move(chessboard.Move(self.handle_opponent(move.start), self.handle_opponent(move.end), "")) if self.icolor == 1 else self.state.move(move)
+
+                # initialize Kings (has to be before active color switch)
+                self.kings = Kings(self.state, self.icolor)
+
+                # switch active color
+                self.icolor = 0 if self.icolor == 1 else 1
+                self.draw_pieces()
+                break
+
+    def handle_opponent(self, index) -> int:
+        '''
+        Helper function to handle opponent index
+        '''
+        return 119 - index
+
+    def to_row_col(self, index) -> tuple:
+        '''
+        Helper function to transform index into row and col
+        returns tuple
+        '''
+        return ((index // 10) - 2, (index % 10) - 1)
+
+    def in_check_after_move(self, move) -> bool:
+        '''
+        Determines whether a move by you allows for check by opponent
+        '''
+        # makes a copy of the state
+        state = self.state
+        # move that copy of the state
+        state = state.move(chessboard.Move(self.handle_opponent(move.start), self.handle_opponent(move.end), "")) if self.icolor == 1 else state.move(move)
+        kings = Kings(state, 0 if self.icolor == 1 else 1)
+        # if, after that move, you still are in check
+        return kings.in_check()
 
     def focus(self, pos) -> None:
         '''
@@ -98,7 +131,7 @@ class GUI:
         # if piece is active color and is not ".", select it and
         # find all available moves according to that piece
         if piece != "." and piece.isupper():
-            pos = pos if self.icolor == 0 else 119 - pos
+            pos = self.handle_opponent(pos) if self.icolor == 1 else pos
             self.selected_piece = pos
             self.focused = [self.to_row_col(pos)]
             # finds all moves in available_moves 
@@ -106,13 +139,6 @@ class GUI:
             for move in self.available_moves:
                 if move.start == pos:
                     self.focused.append(self.to_row_col(move.end))
-
-    def to_row_col(self, index) -> tuple:
-        '''
-        Helper function to transform index into row and col
-        returns tuple
-        '''
-        return ((index // 10) - 2, (index % 10) - 1)
 
     def draw_board(self) -> None:
         '''
@@ -191,32 +217,14 @@ class Kings:
         
         # generating moves for UPPERCASE letters
         self.available_moves = list(state.generate_moves())
-
-        print("I: " + str(self.i_king))
-        print("O: " + str(self.o_king))
         
     def in_check(self) -> bool:
         '''
-        Check if opposing king is in check of active pieces
+        Check if own king is in check of opponent's pieces
         '''
         for x in self.available_moves:
-            print(x.end)
-            if self.o_king == x.end:
-                return True
+            if self.o_king == x.end: return True
         return False
-
-    # def in_check_after_move(self, start, end) -> bool:
-    #     '''
-    #     Make an instance of every move and check if own king is
-    #     in check after every opponent's move
-    #     '''
-    #     check = False
-    #     self.state = self.state.move(chessboard.Move(start, end, ""))
-    #     for move in self.available_moves:
-    #         self.state = self.state.move(move)
-    #         temporary = deepcopy(self)
-    #         check = temporary.in_check()
-    #     return check
 
 
 def main(state):

@@ -283,7 +283,7 @@ class BoardState(State):
         return BoardState(self.board[::-1].swapcase(), -self.score, self.ac, self.cr, ep, kp)
 
 
-    def points(self, move):
+    def points(self, move) -> int:
         '''
         Score the value of the move
         '''
@@ -315,10 +315,10 @@ class BoardState(State):
 
         return value
 
-    def alpha_notation(self, row, col):
+    def alpha_notation(self, row, col) -> int:
         '''
         Converts row and column into index number
         '''
         if row < 0 or row > 7 or col < 0 or col > 7: 
-            return
+            return -1
         return A1 + (N * row) + (E * col)
