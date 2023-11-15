@@ -1,6 +1,6 @@
-import time, math, string
+import string
 from itertools import count
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 
 # chess_board = [
 #    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
@@ -13,8 +13,6 @@ from collections import namedtuple, defaultdict
 #    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 # ]
 
-##############################################
-# Piece-Square Tables
 ##############################################
 
 # values for each pieces
@@ -90,9 +88,9 @@ DIRECTIONS = {
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0"
 
 # initializes data structure for initial state
-State = namedtuple("State", "board score ac cr ep kp")
+State = namedtuple("State", "board value ac cr ep kp")
 # board - 120 char representation of the board
-# score - score evaluation of the board
+# value - value evaluation of the board
 # ac - active color (0 is white, 1 is black)
 # cr - castling rights, UPPERCASE for white, lowercase for black
 # ep - en passant square
@@ -123,7 +121,7 @@ def load_from_fen():
     # convert enpassant square from standard notation into index
     ep = fen_split[3]
     if ep != "-":
-        ep = A1 + string.ascii_lowercase.index(ep[0]) + int((ep[1] * 10))
+        ep = A1 + string.ascii_lowercase.index(ep[0]) + (int(ep[1]) * 10)
     else: ep = 0
 
     # initialize board with 64 empty characters
@@ -164,12 +162,14 @@ INITIAL_STATE = load_from_fen()
 ############################################
 
 class BoardState(State):
+    '''
+    A state of a chess game.
+    '''
 
-    def generate_moves(self):
+    def generate_moves(self, check = False):
         '''
-        Returns list of available moves for all indexes.
+        Returns list of available moves for all active indexes.
         '''
-        # index is initial position
         for index, piece in enumerate(self.board):
             # only consider the UPPERCASE pieces
             if not piece.isupper():
@@ -206,16 +206,14 @@ class BoardState(State):
                         # promote to all iterations once pawn gets to the back rank
                         if A8 <= possible_move <= H8:
                             for promotion in "NBRQ":
-                                if self.ac == 1: # opposite color
-                                    yield Move(119 - index, 119 - possible_move, promotion)
-                                else:
-                                    yield Move(index, possible_move, promotion)
+                                # if self.ac == 1: yield Move(119 - index, 119 - possible_move, promotion)
+                                # else: yield Move(index, possible_move, promotion)
+                                yield Move(index, possible_move, promotion)
                             break
                     # if all the tests pass, then move the piece.
-                    if self.ac == 1: # if opposite color
-                        yield Move(119 - index, 119 - possible_move, "")
-                    else:
-                        yield Move(index, possible_move, "")
+                    # if self.ac == 1: yield Move(119 - index, 119 - possible_move, "")
+                    # else: yield Move(index, possible_move, "")
+                    yield Move(index, possible_move, "")
                     # stop sliding
                     if piece in "PNK" or pos.islower():
                         break
@@ -233,7 +231,7 @@ class BoardState(State):
         start, end, promotion = move
         piece_start = self.board[start]
         board = self.board # copies value
-        score = self.score + self.points(move)
+        score = self.value + self.points(move)
         
         # reset all the values
         ac = 0 if self.ac == 1 else 1
@@ -273,15 +271,14 @@ class BoardState(State):
         # returns rotated board
         return BoardState(board, score, ac, castling_rights, en_passant, king_passant).rotate()
 
-    def rotate(self):
+    def rotate(self, nullmove = False):
         '''
         Rotates the board, negates the score, keeps the castling rights,
         and preserves en passant and king passant
         '''
-        ep = 119 - self.ep if self.ep != 0 else 0
-        kp = 119 - self.kp if self.kp != 0 else 0
-        return BoardState(self.board[::-1].swapcase(), -self.score, self.ac, self.cr, ep, kp)
-
+        ep = 119 - self.ep if self.ep and not nullmove else 0
+        kp = 119 - self.kp if self.kp and not nullmove else 0
+        return BoardState(self.board[::-1].swapcase(), -self.value, self.ac, self.cr, ep, kp)
 
     def points(self, move) -> int:
         '''
@@ -314,11 +311,3 @@ class BoardState(State):
                 value += PIECE_SQUARE_TABLES["P"][119 - (end + S)]
 
         return value
-
-    def alpha_notation(self, row, col) -> int:
-        '''
-        Converts row and column into index number
-        '''
-        if row < 0 or row > 7 or col < 0 or col > 7: 
-            return -1
-        return A1 + (N * row) + (E * col)
