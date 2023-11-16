@@ -9,9 +9,6 @@ Entry = namedtuple("Entry", "lower upper")
 
 MATE_LOWER_BOUND = PIECE["K"] - 10 * PIECE["Q"]
 MATE_UPPER_BOUND = PIECE["K"] + 10 * PIECE["Q"]
-QS = 40
-QS_A = 140
-EVAL_ROUGHNESS = 15
 
 #######################################
 
@@ -19,120 +16,93 @@ class Bot:
 
     def __init__(self) -> None:
         self.nodes = 0
-        self.history = set()
-        self.transposition_score = {}
-        self.transposition_move = {}
+        self.state = None
+        self.variated_moves = {}
         
-    def bound(self, state, gamma, depth, null = True):
+    def alphabeta(self, state, g, depth):
         '''
         An upper and lower bound function
         '''
-        self.nodes += 1
-
+        
         # to make sure we still have a king
         if -MATE_LOWER_BOUND > state.value:
             # the other side has won
             return -MATE_UPPER_BOUND
-
-        # if we've looked at this position before, revoke and return
-        entry = self.transposition_score.get(
-            (state, depth, null), 
-            Entry(-MATE_UPPER_BOUND, MATE_UPPER_BOUND)
-        )
-        if entry.lower >= gamma:
-            return entry.lower
-        if entry.upper < gamma:
-            return entry.upper
         
-        # don't repeat positions
-        if null and depth > 0 and state in self.history:
-            return 0
+        self.nodes += 1
+        v_low = 40 - depth * 140
         
-        def moves():
-            '''
-            Generates the moves and prunes the branches 
-            '''
-            if depth > 2 and null and abs(state.value) < 500:
-                yield None, -self.bound(state.rotate(nullmove=True), 1 - gamma, depth - 3)
-
-            # if depth is 0, then do nothing
-            if depth == 0:
-                yield None, state.value
+        def strongest_move():
 
             # look for strongest move from the last move
-            strongest = self.transposition_move.get(state)
+            strongest_move = self.variated_moves.get(state)
 
-            # if strongest move does not exist, then find one with a shallower search
-            if not strongest and depth > 2:
-                self.bound(state, gamma, depth - 3, null = False)
-                strongest = self.transposition_move.get(state)
+            if not strongest_move and depth > 2:
+                self.alphabeta(state, g, depth - 3)
+                strongest_move = self.variated_moves.get(state)
 
-            val_lower = QS - depth * QS_A
-            # if strongest move exists and has a higher value than the lower bound, return strongest move
-            if strongest and state.points(strongest) >= val_lower:
-                yield strongest, -self.bound(state.move(strongest), 1 - gamma, depth - 1)
+            if strongest_move and state.points(strongest_move) >= v_low:
+                # recursively iterates through, with one less depth
+                # negative bound because it switches turns
+                print("6yes")
+                yield strongest_move, -self.alphabeta(state.move(strongest_move), 1 - g, depth - 1)
+        
+        def make_moves():
 
-            for val, move in sorted(
-                ((state.points(m), m) for m in state.generate_moves()), 
-                reverse=True
+            # if depth is 0, then return the value
+            if depth == 0:
+                yield None, state.value
+            
+            # find the strongest move
+            strongest_move()
+
+            for v, move in sorted(
+                ((state.points(move), move) for move in state.generate_moves()), 
+                reverse = True
                 ):
-                # quiescent searching
-                if val < val_lower:
-                    break
-                # takes the good branches
-                if depth <= 1 and state.value + val < gamma:
-                    yield move, state.value + val if val < MATE_LOWER_BOUND else MATE_UPPER_BOUND
+                if v < v_low: break
+                if depth <= 1 and state.value + v < g:
+                    yield move, state.value + v if v < MATE_LOWER_BOUND else MATE_UPPER_BOUND
                     break
                 # recursively iterates through, with one less depth
                 # negative bound because it switches turns
-                yield move, -self.bound(state.move(move), 1 - gamma, depth - 1)
+                yield move, -self.alphabeta(state.move(move), 1 - g, depth - 1)
 
         # sets best as an extremely low value and adjust best as a better score is found
         best = -MATE_UPPER_BOUND
-        for move, score in moves():
+        for move, score in make_moves():
             best = max(best, score)
-            if best >= gamma:
+            if best >= g:
                 # save the move if is better than gamma
                 if move is not None:
-                    self.transposition_move[state] = move
+                    self.variated_moves[state] = move
                 break
 
-        # stalemate
+        # handle draws
         if depth > 2 and best == -MATE_UPPER_BOUND:
-            flipped = state.rotate(nullmove = True)
-            in_check = self.bound(flipped, MATE_UPPER_BOUND, 0) == MATE_UPPER_BOUND
-            best = -MATE_LOWER_BOUND if in_check else 0
-
-        # set values of the transposition_score to look up later
-        if best >= gamma:
-            self.transposition_score[state, depth, null] = Entry(best, entry.upper)
-        if best < gamma:
-            self.transposition_score[state, depth, null] = Entry(entry.lower, best)
+            flipped_state = state.rotate(nullmove = True)
+            is_in_check = self.alphabeta(flipped_state, MATE_UPPER_BOUND, 0) == MATE_UPPER_BOUND
+            best = -MATE_LOWER_BOUND if is_in_check else 0
 
         return best
         
-    def search(self, history):
+    def search(self, state):
         '''
         iterative deepening search
         '''
         self.nodes = 0
-        self.history = set(history)
-        self.transposition_score.clear()
-
-        gamma = 0
-        # we cap the depth range at 1000 so that we don't head off into infinity
-        for depth in range(1, 1000):
+        g = 0
+        # we cap the depth range at 100 so that we don't head off into infinity
+        for depth in range(1, 100):
             # sets upper and lower bounds
-            lower, upper = -MATE_LOWER_BOUND, MATE_LOWER_BOUND
-            while lower < upper - EVAL_ROUGHNESS:
+            lower = -MATE_LOWER_BOUND
+            upper = MATE_LOWER_BOUND
+            while lower < upper - 15:
                 # grabs the score
-                score = self.bound(history[-1], gamma, depth, null = False)
+                score = self.alphabeta(state, g, depth)
                 # sets score if higer or lower than gamma
-                if score >= gamma:
-                    lower = score
-                if score < gamma:
-                    upper = score
-                # results of depth returned
-                yield self.nodes, depth, gamma, score, self.transposition_move.get(history[-1])
-                # sets gamma for next depth
-                gamma = (lower + upper + 1) // 2
+                if score >= g: lower = score
+                if score < g: upper = score
+                # results of search returned
+                yield self.nodes, depth, g, score, self.variated_moves.get(state)
+                g = (lower + upper + 1) // 2

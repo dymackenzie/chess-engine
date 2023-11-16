@@ -162,14 +162,9 @@ INITIAL_STATE = load_from_fen()
 ############################################
 
 class BoardState(State):
-    '''
-    A state of a chess game.
-    '''
 
-    def generate_moves(self, check = False):
-        '''
-        Returns list of available moves for all active indexes.
-        '''
+    def generate_moves(self):
+        ''' Returns list of available moves for all active indexes. '''
         for index, piece in enumerate(self.board):
             # only consider the UPPERCASE pieces
             if not piece.isupper():
@@ -206,13 +201,9 @@ class BoardState(State):
                         # promote to all iterations once pawn gets to the back rank
                         if A8 <= possible_move <= H8:
                             for promotion in "NBRQ":
-                                # if self.ac == 1: yield Move(119 - index, 119 - possible_move, promotion)
-                                # else: yield Move(index, possible_move, promotion)
                                 yield Move(index, possible_move, promotion)
                             break
                     # if all the tests pass, then move the piece.
-                    # if self.ac == 1: yield Move(119 - index, 119 - possible_move, "")
-                    # else: yield Move(index, possible_move, "")
                     yield Move(index, possible_move, "")
                     # stop sliding
                     if piece in "PNK" or pos.islower():
@@ -224,9 +215,7 @@ class BoardState(State):
                         yield Move(possible_move + W, possible_move + E, "")
 
     def move(self, move):
-        '''
-        Performs the move of a piece from one index to another
-        '''
+        ''' Performs the move of a piece from one index to another '''
         # initialize values
         start, end, promotion = move
         piece_start = self.board[start]
@@ -234,8 +223,6 @@ class BoardState(State):
         score = self.value + self.points(move)
         
         # reset all the values
-        ac = 0 if self.ac == 1 else 1
-        castling_rights = self.cr
         en_passant, king_passant = 0, 0
         
         # move the piece
@@ -243,6 +230,7 @@ class BoardState(State):
         board = insert(board, start, ".")
         
         # castling -
+        castling_rights = self.cr
         # if we move our rook
         if start == A1: castling_rights = self.cr.replace("Q", "")
         if start == H1: castling_rights = self.cr.replace("K", "")
@@ -251,7 +239,8 @@ class BoardState(State):
         if end == H8: castling_rights = self.cr.replace("q", "")
         # if king moves
         if piece_start == "K":
-            castling_rights = self.cr.replace("Q", "").replace("K", "")
+            if self.ac == 0: castling_rights = self.cr.replace("Q", "").replace("K", "")
+            else: castling_rights = self.cr.replace("q", "").replace("k", "")
             # sets king passant square
             if abs(end - start) == 2:
                 kp = (start + end) // 2
@@ -267,23 +256,22 @@ class BoardState(State):
             if end == self.ep:
                 # takes en passant square
                 board = insert(board, self.ep + S, ".")
+
+        # revert active color
+        ac = 0 if self.ac == 1 else 1
         
         # returns rotated board
         return BoardState(board, score, ac, castling_rights, en_passant, king_passant).rotate()
 
     def rotate(self, nullmove = False):
-        '''
-        Rotates the board, negates the score, keeps the castling rights,
-        and preserves en passant and king passant
-        '''
+        ''' Rotates the board, negates the score, keeps the castling rights,
+        and preserves en passant and king passant '''
         ep = 119 - self.ep if self.ep and not nullmove else 0
         kp = 119 - self.kp if self.kp and not nullmove else 0
         return BoardState(self.board[::-1].swapcase(), -self.value, self.ac, self.cr, ep, kp)
 
     def points(self, move) -> int:
-        '''
-        Score the value of the move
-        '''
+        ''' Score the value of the move '''
         start, end, promotion = move
         p_start, p_end = self.board[start], self.board[end]
 
