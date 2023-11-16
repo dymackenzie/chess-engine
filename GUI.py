@@ -13,7 +13,7 @@ class GUI:
     COLOR1 = "#CBAC79"
     COLOR2 = "#8B603D"
     HIGHLIGHT_COLOR = "#A87A30"
-    THINK = 1     # in seconds
+    THINK = 0.2     # in seconds
 
     selected_piece = None
     focused = None
@@ -32,10 +32,10 @@ class GUI:
         self.bot = bot.Bot()
 
         # initalize the Openings class
-        self.openings = openings.Openings().openings
-        open_index = random.randint(0, len(self.openings))
-        self.openings = self.openings[open_index]
-        self.open_limit = 3
+        self.all_openings = openings.Openings().openings
+        open_index = random.randint(0, len(self.all_openings))
+        self.openings = self.all_openings[open_index]
+        self.open_limit = 2
 
         # initialize the Kings class
         self.kings = Kings(self.state, self.active_color)
@@ -126,9 +126,9 @@ class GUI:
                     try:
                         # move bot
                         self.state = self.state.move(self.AI_move(self.state))
+                        self.active_color = 0 if self.active_color == 1 else 1
                     except ChessException as error:
                         self.info["text"] = error.__class__.__name__
-                    self.active_color = 0 if self.active_color == 1 else 1
                     self.draw_pieces()
                 
                 # if pawn move is a promotion move
@@ -227,15 +227,15 @@ class GUI:
             
             if score >= gamma:
                 if move is None:
-                    raise Checkmate
+                    raise ChessException
                 # assign best move
                 best_move = chessboard.Move(move.start, move.end, move.promote)
 
-                self.info["text"] = ("depth:", depth, "positions:", nodes, "time:", round(time.time() - init_time, 2))
+                self.info["text"] = ("depth:", depth, "positions:", nodes, "time:", round(time.time() - init_time, 2), "score:", score)
             
             # controls how long the bot will think for
             if best_move and time.time() - init_time > self.THINK: break
-
+        
         return best_move
 
     def in_check_after_move(self, move) -> bool:
@@ -264,9 +264,9 @@ class GUI:
         self.available_moves = []
 
         # openings
-        open_index = random.randint(0, len(self.openings))
-        self.openings = self.openings[open_index]
-        self.open_number = 5
+        open_index = random.randint(0, len(self.all_openings))
+        self.openings = self.all_openings[open_index]
+        self.open_limit = 2
 
         self.draw_board()
         self.draw_pieces()
@@ -288,27 +288,37 @@ class GUI:
         self.available_moves = []
 
         # openings
-        open_index = random.randint(0, len(self.openings))
-        self.openings = self.openings[open_index]
-        self.open_number = 4
+        open_index = random.randint(0, len(self.all_openings))
+        self.openings = self.all_openings[open_index]
+        self.open_limit = 2
 
         # bot moves first as white
-        self.state = self.state.move(self.AI_move(self.state))
+        if not self.move_opening():
+            try:
+                # move bot
+                self.state = self.state.move(self.AI_move(self.state))
+            except ChessException as error:
+                self.info["text"] = error.__class__.__name__
+            self.active_color = 0 if self.active_color == 1 else 1 
+        
+        self.active_color = 0 if self.active_color == 1 else 1 
 
         self.draw_board()
         self.draw_pieces()
 
-    # def run_AI_against_AI(self, event) -> None:
-    #     ''' Runs the bot against itself. '''
-    #     try:
-    #         self.state = self.state.move(self.AI_move(self.state))
-    #         self.active_color = 0 if self.active_color == 1 else 1
-    #         self.state = self.state.move(self.AI_move(self.state))
-    #         self.active_color = 0 if self.active_color == 1 else 1
-    #     except ChessException as error:
-    #         self.info["text"] = error.__class__.__name__
-    #     self.draw_board()
-    #     self.draw_pieces()
+    def run(self, event) -> None:
+        ''' Runs the bot against itself. '''
+        try:
+            if not self.move_opening():
+                self.state = self.state.move(self.AI_move(self.state))
+                self.active_color = 0 if self.active_color == 1 else 1
+            if not self.move_opening():
+                self.state = self.state.move(self.AI_move(self.state))
+                self.active_color = 0 if self.active_color == 1 else 1
+        except ChessException as error:
+            self.info["text"] = error.__class__.__name__
+        self.draw_board()
+        self.draw_pieces()
 
 #########################################
 
