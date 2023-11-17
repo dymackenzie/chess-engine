@@ -72,8 +72,8 @@ PIECE_SQUARE_TABLES = {
 #################################################
 
 # Lists of possible moves for each piece type.
-A1, H1, A8, H8 = 91, 98, 21, 28
-N, E, S, W = -10, 1, 10, -1
+A1, H1, A8, H8  = 91, 98, 21, 28
+N, E, S, W      = -10, 1, 10, -1
 DIRECTIONS = {
     "P": (N, N+N, N+W, N+E),
     "N": (N+N+E, E+N+E, E+S+E, S+S+E, S+S+W, W+S+W, W+N+W, N+N+W),
@@ -103,9 +103,8 @@ Move = namedtuple("Move", "start end promote")
 # promote - if there is a promotion event
 
 def insert(board, index, piece):
-    '''
-    Inserts piece into the board.
-    '''
+    ''' Helper method to insert piece into the board. '''
+
     return board[:index] + piece + board[index + 1 :]
 
 def load_from_fen():

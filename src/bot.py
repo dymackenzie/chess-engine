@@ -1,28 +1,18 @@
 from chessboard import PIECE
-from collections import namedtuple
-
-######################################
-
-Entry = namedtuple("Entry", "lower upper")
-# a data struct for upper and lower bounds
-# lower <= score of position <= upper
 
 MATE_LOWER_BOUND = PIECE["K"] - 10 * PIECE["Q"]
 MATE_UPPER_BOUND = PIECE["K"] + 10 * PIECE["Q"]
 
-#######################################
-
 class Bot:
 
     def __init__(self) -> None:
-        self.nodes = 0
-        self.state = None
+        self.nodes          = 0
+        self.state          = None
         self.variated_moves = {}
         
     def alphabeta(self, state, g, depth):
-        '''
-        An upper and lower bound function
-        '''
+        ''' an alphabeta function designed for recursively going through every possible
+         chess move and finding the best move '''
         
         # to make sure we still have a king
         if -MATE_LOWER_BOUND > state.value:
@@ -87,9 +77,7 @@ class Bot:
         return best
         
     def search(self, state):
-        '''
-        iterative deepening search
-        '''
+        ''' iterative deepening search '''
         self.nodes = 0
         g = 0
         # we cap the depth range at 100 so that we don't head off into infinity

@@ -5,7 +5,7 @@ import chessboard
 
 class Openings:
 
-    NUM_OF_OPENINGS = 3
+    NUM_OF_OPENINGS = 2
 
     def __init__(self) -> None:
         self.openings = self.read()
@@ -13,7 +13,7 @@ class Openings:
     def read(self) -> list:
         ''' Reads all 5 opening files and converts into a list of list of end moves. '''
         li = []
-        paths = ['chess_openings/a.tsv', 'chess_openings/b.tsv', 'chess_openings/c.tsv', 'chess_openings/d.tsv', 'chess_openings/e.tsv']
+        paths = ['./data/chess_openings/a.tsv', './data/chess_openings/b.tsv', './data/chess_openings/c.tsv', './data/chess_openings/d.tsv', './data/chess_openings/e.tsv']
         for path in paths:
             database = pd.read_csv(path, index_col = None, header = 0, sep = "\t")
             li.append(database)
@@ -22,7 +22,7 @@ class Openings:
         result = []
         for pgn in all_pgn:
             insert = self.convert_pgn(pgn)
-            if len(insert) != 0 and len(insert) >= self.NUM_OF_OPENINGS:
+            if len(insert) != 0 and len(insert) == self.NUM_OF_OPENINGS:
                 result.append(insert)
         return result
 

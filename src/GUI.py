@@ -8,25 +8,39 @@ from PIL import Image, ImageTk
 class GUI:
     ''' The GUI class to handle all user interfaces '''
 
-    BOARD_SIZE = 8
-    SQUARE_SIZE = 64
-    COLOR1 = "#CBAC79"
-    COLOR2 = "#8B603D"
+    BOARD_SIZE      = 8
+    SQUARE_SIZE     = 64
+    COLOR1          = "#CBAC79"
+    COLOR2          = "#8B603D"
     HIGHLIGHT_COLOR = "#A87A30"
-    THINK = 0.2     # in seconds
+    THINK           = 2     # in seconds
 
-    selected_piece = None
-    focused = None
+    selected_piece  = None
+    focused         = None
     available_moves = []
-    images = {}
-    turn_start = 0
+    images          = {}
+    turn_start      = 0
 
     def __init__(self, parent, state) -> None:
 
         # initializes the variables
-        self.state = state
+        self.state  = state
         self.parent = parent
         self.active_color = self.state.ac
+
+        self.initialize_objects()
+        self.initialize_graphics(parent)
+
+        # draws board and pieces
+        self.draw_board()
+        self.draw_pieces()
+
+        # adds click listener
+        # change function to run_AI_against_AI to see AI in action against itself
+        self.canvas.bind("<Button-1>", self.click_on_square)
+
+    def initialize_objects(self) -> None:
+        ''' Helper method to instantiate all the needed classes '''
 
         # initialize the Bot class
         self.bot = bot.Bot()
@@ -39,6 +53,9 @@ class GUI:
 
         # initialize the Kings class
         self.kings = Kings(self.state, self.active_color)
+
+    def initialize_graphics(self, parent) -> None:
+        ''' Helper method to initialize the graphics '''
 
         # initialize menu bar
         self.menu = tk.Menu(parent)
@@ -59,14 +76,6 @@ class GUI:
         canvas_height = self.SQUARE_SIZE * self.BOARD_SIZE
         self.canvas = tk.Canvas(parent, width = canvas_width, height = canvas_height)
         self.canvas.pack(padx = self.SQUARE_SIZE, pady = self.SQUARE_SIZE)
-
-        # draws board and pieces
-        self.draw_board()
-        self.draw_pieces()
-
-        # adds click listener
-        # change function to run_AI_against_AI to see AI in action against itself
-        self.canvas.bind("<Button-1>", self.click_on_square)
 
     def click_on_square(self, event) -> None:
         ''' Gets the square clicked and either moves a piece
@@ -92,6 +101,7 @@ class GUI:
 
     def focus(self, pos) -> None:
         ''' Focuses on the piece and shows all available moves '''
+
         piece = self.state.board[pos]
         # if piece is active color and is not ".", select it and
         # find all available moves according to that piece
@@ -106,6 +116,7 @@ class GUI:
 
     def step(self, start, end) -> None:
         ''' Moves a piece graphically and sets new state from movement '''
+
         # find corresponding move in list of available moves
         for move in self.available_moves:
             if end == move.end and start == move.start:
@@ -146,6 +157,7 @@ class GUI:
 
     def draw_board(self) -> None:
         ''' Draws the base chess board. '''
+
         colors = [self.COLOR1, self.COLOR2] # beige, brown
         for row in range(self.BOARD_SIZE):
             for col in range(self.BOARD_SIZE):
@@ -172,19 +184,20 @@ class GUI:
     def draw_pieces(self) -> None:
         ''' Draws the pieces onto the chessboard '''
 
-        # generates the list of available moves everytime the function is called
+        # generates the list of available moves everytime the pieces are redrawn
         if self.active_color == 0: self.available_moves = list(self.state.generate_moves())
         # copy the state of the game board
         chessboard = self.state.board.replace(" ", "")
         chessboard = chessboard[::-1].swapcase() if self.active_color == 1 else chessboard
+
         # visualize the chesboard 
         self.canvas.delete("occupied")
         for i, piece in enumerate(chessboard):
             if piece == ".":
                 continue
             # grab filename
-            if self.turn_start == 0: filename = "chess_piece_icons/%s%s.png" % (piece.lower(), "white" if piece.isupper() else "black")
-            else: filename = "chess_piece_icons/%s%s.png" % (piece.lower(), "black" if piece.isupper() else "white")
+            if self.turn_start == 0: filename = "./data/chess_piece_icons/%s%s.png" % (piece.lower(), "white" if piece.isupper() else "black")
+            else: filename = "./data/chess_piece_icons/%s%s.png" % (piece.lower(), "black" if piece.isupper() else "white")
             row = i // 8 # from 0-7
             col = i % 8 # from 0-7
             # check if filename is already instantiated
@@ -203,6 +216,7 @@ class GUI:
 
     def move_opening(self) -> bool:
         ''' Opens with a random opening for variety '''
+
         result = False
         nmove = None
         if self.open_limit > 0:
@@ -220,6 +234,7 @@ class GUI:
 
     def AI_move(self, state) -> object:
         ''' returns best move recommended by the AI '''
+        
         best_move = None
         init_time = time.time()
         # search for best move
@@ -240,12 +255,13 @@ class GUI:
 
     def in_check_after_move(self, move) -> bool:
         ''' Determines whether a move by you allows for check by opponent '''
+
         # makes a copy of the state
         state = self.state
         # move that copy of the state
         state = state.move(move)
         kings = Kings(state, 0 if self.active_color == 1 else 1)
-        # if, after that move, you still are in check
+        # if, after that move, you still are in check, return result
         return kings.in_check()
 
     def new_game_as_white(self) -> None:
@@ -258,10 +274,10 @@ class GUI:
                                         chessboard.INITIAL_STATE.ep,
                                         chessboard.INITIAL_STATE.kp)
         # reset variables
-        self.turn_start = 0
-        self.selected_piece = None
-        self.focused = None
-        self.available_moves = []
+        self.turn_start         = 0
+        self.selected_piece     = None
+        self.focused            = None
+        self.available_moves    = []
 
         # openings
         open_index = random.randint(0, len(self.all_openings))
@@ -272,9 +288,8 @@ class GUI:
         self.draw_pieces()
 
     def new_game_as_black(self) -> None:
-        '''
-        Begins new game as black and has the bot move first.
-        '''
+        ''' Begins new game as black and has the bot move first. '''
+
         self.state = chessboard.BoardState(chessboard.INITIAL_STATE.board,
                                         chessboard.INITIAL_STATE.value,
                                         1,
@@ -282,10 +297,10 @@ class GUI:
                                         chessboard.INITIAL_STATE.ep,
                                         chessboard.INITIAL_STATE.kp)
         # reset variables
-        self.turn_start = 1
-        self.selected_piece = None
-        self.focused = None
-        self.available_moves = []
+        self.turn_start         = 1
+        self.selected_piece     = None
+        self.focused            = None
+        self.available_moves    = []
 
         # openings
         open_index = random.randint(0, len(self.all_openings))
@@ -306,25 +321,27 @@ class GUI:
         self.draw_board()
         self.draw_pieces()
 
-    def run(self, event) -> None:
-        ''' Runs the bot against itself. '''
-        try:
-            if not self.move_opening():
-                self.state = self.state.move(self.AI_move(self.state))
-                self.active_color = 0 if self.active_color == 1 else 1
-            if not self.move_opening():
-                self.state = self.state.move(self.AI_move(self.state))
-                self.active_color = 0 if self.active_color == 1 else 1
-        except ChessException as error:
-            self.info["text"] = error.__class__.__name__
-        self.draw_board()
-        self.draw_pieces()
+    # def run(self, event) -> None:
+    #     ''' Runs the bot against itself. '''
+    #     try:
+    #         if not self.move_opening():
+    #             self.state = self.state.move(self.AI_move(self.state))
+    #             self.active_color = 0 if self.active_color == 1 else 1
+    #         if not self.move_opening():
+    #             self.state = self.state.move(self.AI_move(self.state))
+    #             self.active_color = 0 if self.active_color == 1 else 1
+    #     except ChessException as error:
+    #         self.info["text"] = error.__class__.__name__
+    #     self.draw_board()
+    #     self.draw_pieces()
 
 #########################################
 
 class Kings:
     ''' Class to keep track of king position and check status '''
+
     def __init__(self, state, icolor) -> None:
+
         self.state = state
         self.icolor = icolor
         for index, piece in enumerate(state.board):
@@ -332,12 +349,12 @@ class Kings:
                 self.i_king = index
             if piece == "k": 
                 self.o_king = index
-        
         # generating moves for UPPERCASE letters
         self.available_moves = list(state.generate_moves())
         
     def in_check(self) -> bool:
         ''' Check if own king is in check of opponent's pieces '''
+        
         for x in self.available_moves:
             if self.o_king == x.end: return True
         return False
@@ -347,21 +364,3 @@ class ChessException(Exception): pass
 class In_Check(ChessException): pass
 
 class Checkmate(ChessException): pass
-
-#########################################
-
-def main(state):
-    root = tk.Tk()
-    root.title("Chessboard")
-    root.configure(background = "#454440") # background
-    gui = GUI(root, state)
-    root.mainloop()
-
-if __name__ == "__main__":
-    state = chessboard.BoardState(chessboard.INITIAL_STATE.board,
-                                chessboard.INITIAL_STATE.value,
-                                chessboard.INITIAL_STATE.ac,
-                                chessboard.INITIAL_STATE.cr,
-                                chessboard.INITIAL_STATE.ep,
-                                chessboard.INITIAL_STATE.kp)
-    main(state)
